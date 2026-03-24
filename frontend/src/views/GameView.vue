@@ -67,6 +67,13 @@ const loadSession = () => {
     const user = JSON.parse(userRaw);
     return { token, user: user && typeof user === "object" ? user : {} };
   } catch {
+  }
+  try {
+    const token = sessionStorage.getItem("wolfmind_token") || "";
+    const userRaw = sessionStorage.getItem("wolfmind_user") || "{}";
+    const user = JSON.parse(userRaw);
+    return { token, user: user && typeof user === "object" ? user : {} };
+  } catch {
     return { token: "", user: {} };
   }
 };
@@ -600,4 +607,3 @@ onBeforeUnmount(() => {
   clientRef.value = null;
 });
 </script>
-

@@ -83,6 +83,10 @@ const hasToken = computed(() => {
   try {
     return Boolean(localStorage.getItem("wolfmind_token"));
   } catch {
+  }
+  try {
+    return Boolean(sessionStorage.getItem("wolfmind_token"));
+  } catch {
     return false;
   }
 });
@@ -113,6 +117,12 @@ const saveSession = ({ token, user }) => {
   try {
     localStorage.setItem("wolfmind_token", token);
     localStorage.setItem("wolfmind_user", JSON.stringify(user || {}));
+    return;
+  } catch {
+  }
+  try {
+    sessionStorage.setItem("wolfmind_token", token);
+    sessionStorage.setItem("wolfmind_user", JSON.stringify(user || {}));
   } catch {
     // ignore
   }
@@ -124,6 +134,14 @@ const updateUser = (patch) => {
     const prev = JSON.parse(raw);
     const next = { ...(prev || {}), ...(patch || {}) };
     localStorage.setItem("wolfmind_user", JSON.stringify(next));
+    return next;
+  } catch {
+  }
+  try {
+    const raw = sessionStorage.getItem("wolfmind_user") || "{}";
+    const prev = JSON.parse(raw);
+    const next = { ...(prev || {}), ...(patch || {}) };
+    sessionStorage.setItem("wolfmind_user", JSON.stringify(next));
     return next;
   } catch {
     return patch || {};
@@ -183,4 +201,3 @@ const goGame = () => {
   router.replace("/game");
 };
 </script>
-

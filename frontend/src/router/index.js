@@ -4,7 +4,12 @@ import GameView from "../views/GameView.vue";
 
 const getToken = () => {
   try {
-    return localStorage.getItem("wolfmind_token") || "";
+    const v = localStorage.getItem("wolfmind_token");
+    if (v) return v;
+  } catch {
+  }
+  try {
+    return sessionStorage.getItem("wolfmind_token") || "";
   } catch {
     return "";
   }
@@ -29,4 +34,3 @@ router.beforeEach((to) => {
   }
   return true;
 });
-

@@ -20,7 +20,12 @@
 
 ## 简介
 
-这是一个基于大语言模型（LLM）和多智能体框架 AgentScope 构建的狼人杀游戏系统。9 个 AI 智能体将扮演不同角色（狼人、村民、预言家、女巫、猎人），通过自然语言进行推理、讨论、投票，展现出复杂的策略博弈和社交推理能力，并提供 Web 控制台用于启动/停止游戏与实时查看对局日志。
+这是一个基于大语言模型（LLM）和多智能体框架 AgentScope 构建的狼人杀游戏系统。支持两种模式：
+
+- **混合模式（默认）**：1 个真人玩家 + 8 个 AI 玩家（真人固定为 Player1 / 1号位）
+- **纯 AI 模式**：9 个 AI 玩家
+
+系统提供 Web 控制台用于登录、启动/停止游戏、实时查看对局日志，并在需要真人行动（发言/投票/夜间技能）时通过右侧面板提交。
 
 ### 核心亮点
 
@@ -48,6 +53,7 @@
 - ✅ AI 智能体自主学习和策略优化
 - ✅ 经验和策略知识库
 - ✅ Web 控制台：日志列表/查看、自动刷新、启动/停止游戏
+- ✅ 真人玩家接入：登录、头像上传、真人行动面板（发言/投票/夜间技能）
 - ✅ 基于日志的深度数据分析（心理分析、社交网络分析）
 
 ## 快速开始
@@ -56,7 +62,7 @@
 
 - Node.js >= 18.0.0
 - Python 3.8+
-- [uv](https://github.com/astral-sh/uv)（Python 包管理器）
+- [uv](https://github.com/astral-sh/uv)（Python 包管理器，可选，推荐）
 
 ### 1) 安装
 
@@ -92,6 +98,22 @@ npm run dev
 # 或分别启动
 npm run backend   # 启动后端 (http://localhost:8000)
 npm run frontend  # 启动前端 (http://localhost:5173)
+```
+
+启动后：
+
+- 打开前端：`http://localhost:5173/login`
+- 登录后进入 `/game`，点击“开始游戏”
+- 当轮到真人行动时，右侧会出现 “你的行动” 面板，按提示提交即可
+
+#### 局域网/非 localhost 访问说明
+
+如果你不是通过 `localhost` 访问前端（例如用 `http://10.x.x.x:5173`），前端会自动把后端地址推导为 `http(s)://<当前hostname>:8000`。
+如需手动指定，可在 `frontend/.env` 中配置：
+
+```bash
+VITE_API_URL=http://<your-host>:8000
+VITE_WS_URL=ws://<your-host>:8000/ws/game
 ```
 
 ### Docker 启动
@@ -185,13 +207,25 @@ WolfMind/
 │   ├── src/
 │   │   ├── components/       # UI 组件
 │   │   ├── hooks/            # 自定义 Hooks
+│   │   ├── router/           # 路由与守卫
 │   │   ├── services/         # WebSocket 服务
 │   │   ├── styles/           # 全局样式
+│   │   ├── views/            # Login/Game 页面
 │   │   └── main.js           # 入口
 │   ├── index.html
 │   └── package.json
 └── README.md
 ```
+
+## Web 接口速览
+
+后端（FastAPI）默认端口 `8000`：
+
+- `POST /api/login`：登录（返回 token）
+- `GET /api/user`：获取当前用户信息（需 `Authorization: Bearer <token>`）
+- `POST /api/upload/avatar`：上传头像（multipart，需 Bearer token）
+- `POST /api/game/start` / `POST /api/game/stop` / `GET /api/game/status`
+- `WS /ws/game?token=<token>`：订阅事件；真人行动通过发送 `{"type":"player_action","payload":{...}}`
 
 ### 代码结构图
 
@@ -199,12 +233,14 @@ WolfMind/
 flowchart TB
   subgraph U[用户入口]
     CLI[命令行<br/>backend/main.py]
-    UI[Web 控制台<br/>frontend/src/App.vue]
+    UI[Web 控制台<br/>frontend/src/views/LoginView.vue + GameView.vue]
   end
 
   subgraph FE[前端展示层]
     MAIN[main.js]
-    COMP[components/<br/>Header RoomView GameFeed]
+    COMP[components/<br/>Header RoomView GameFeed PlayerActions]
+    ROUTER[router/index.js]
+    VIEWS[views/<br/>LoginView GameView]
     HOOK[hooks/useFeedProcessor.js]
     WS[services/websocket.js<br/>ReadOnlyClient]
     CFGFE[config/constants.js]

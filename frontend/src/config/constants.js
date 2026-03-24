@@ -142,6 +142,15 @@ export const CHART_MARGIN = { left: 60, right: 20, top: 20, bottom: 40 };
 export const AXIS_TICKS = 5;
 
 // WebSocket configuration
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-export const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/game";
+const DEFAULT_HOST =
+  typeof window !== "undefined" && window.location && window.location.hostname
+    ? window.location.hostname
+    : "localhost";
+const DEFAULT_HTTP_PROTO =
+  typeof window !== "undefined" && window.location && window.location.protocol === "https:"
+    ? "https"
+    : "http";
+const DEFAULT_WS_PROTO = DEFAULT_HTTP_PROTO === "https" ? "wss" : "ws";
 
+export const API_URL = import.meta.env.VITE_API_URL || `${DEFAULT_HTTP_PROTO}://${DEFAULT_HOST}:8000`;
+export const WS_URL = import.meta.env.VITE_WS_URL || `${DEFAULT_WS_PROTO}://${DEFAULT_HOST}:8000/ws/game`;
