@@ -351,6 +351,8 @@ async def werewolves_game(
     player_model_map: dict[str, str] | None = None,
     game_id: str | None = None,
     event_sink: Any | None = None,
+    shuffle_agents: bool = True,
+    public_reveal_roles: bool = True,
     stop_event: Any | None = None,
 ) -> tuple[str, str]:
     """狼人杀游戏的主入口
@@ -391,7 +393,8 @@ async def werewolves_game(
 
     # 给智能体分配角色
     roles = ["werewolf"] * 3 + ["villager"] * 3 + ["seer", "witch", "hunter"]
-    np.random.shuffle(agents)
+    if shuffle_agents:
+        np.random.shuffle(agents)
     np.random.shuffle(roles)
 
     for agent, role_name in zip(agents, roles):
@@ -422,7 +425,7 @@ async def werewolves_game(
     # 记录玩家列表到日志
     players_info = [(name, role)
                     for name, role in players.name_to_role.items()]
-    logger.log_players(players_info, model_map=player_model_map)
+    logger.log_players(players_info, model_map=player_model_map, reveal_roles=public_reveal_roles)
 
     game_status = "正常结束"
 

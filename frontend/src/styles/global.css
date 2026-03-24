@@ -9,6 +9,12 @@ html, body, #app {
   padding: 0;
   max-width: none;
 }
+:root {
+  --background-day: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+  --background-night: linear-gradient(180deg, #0b1020 0%, #111827 100%);
+  --background-login: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+  --background-current: var(--background-day);
+}
 body {
   font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
@@ -479,6 +485,17 @@ body {
   transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   cursor: pointer;
+}
+
+.agent-indicator.human .agent-avatar {
+  border-radius: 999px;
+  outline: 2px solid #615CED;
+  outline-offset: 2px;
+}
+
+.agent-indicator.human .agent-indicator-dot {
+  background: #615CED;
+  box-shadow: 0 0 10px rgba(97, 92, 237, 0.5);
 }
 
 .agent-indicator.speaking {
@@ -2645,7 +2662,7 @@ body {
   object-fit: cover;
 }
 
-/* 说话时效�?*/
+/* 说话时效�?*/
 .room-agent-node.is-speaking .room-agent-avatar {
   border-color: #4ade80; /* 绿色边框 */
   box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.3), 0 0 20px rgba(74, 222, 128, 0.5); /* 双重发光 */

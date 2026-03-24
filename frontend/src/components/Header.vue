@@ -154,15 +154,42 @@
     >
       {{ exportExperienceLabel }}
     </button>
+
+    <span
+      v-if="user && user.username"
+      style="
+        margin-left: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        background: #ffffff;
+        white-space: nowrap;
+      "
+    >
+      <img
+        :src="user.avatarUrl || ASSETS.avatars.villager"
+        alt="avatar"
+        style="height: 20px; width: 20px; border-radius: 999px; object-fit: cover;"
+      />
+      <span style="font-size: 12px; font-weight: 800; color: #111827;">
+        {{ user.username }}
+      </span>
+    </span>
   </div>
 </template>
 
 <script setup>
 import { ASSETS } from "../config/constants";
 
+defineOptions({ name: "WolfHeader" });
+
 defineProps({
   statusText: { type: String, default: "等待连接" },
   phaseText: { type: String, default: "准备中" },
+  user: { type: Object, default: null },
   onStartGame: { type: Function, default: null },
   startDisabled: { type: Boolean, default: false },
   startLabel: { type: String, default: "开始游戏" },

@@ -69,6 +69,7 @@ class GameLogger:
         self,
         players_info: list[tuple[str, str]],
         model_map: dict[str, str] | None = None,
+        reveal_roles: bool = True,
     ):
         """记录玩家列表，可选带上模型说明。
 
@@ -91,7 +92,7 @@ class GameLogger:
                 "players": [
                     {
                         "name": name,
-                        "role": role,
+                        "role": role if reveal_roles else "未知",
                         "model": (model_map.get(name) if model_map else None),
                     }
                     for name, role in players_info

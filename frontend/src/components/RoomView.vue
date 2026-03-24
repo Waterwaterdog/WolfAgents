@@ -7,6 +7,7 @@
           :class="{
             speaking: speakingAgents[agent.id],
             hovered: hoveredAgent === agent.id,
+            human: agent.isHuman,
             dead: agent.alive === false
           }"
           @click="handleAgentClick(agent.id)"
@@ -420,7 +421,7 @@ const props = defineProps({
   phaseText: { type: String, default: "" },
 });
 
-const { agents, bubbles, leaderboard, feed, onJumpToMessage, phaseText } = toRefs(props);
+const { agents, bubbles: _bubbles, leaderboard, feed, onJumpToMessage, phaseText } = toRefs(props);
 
 const containerRef = ref(null);
 
@@ -489,7 +490,7 @@ const fetchPlayersInsights = async () => {
   }
 };
 
-const expandedBubbles = ref({});
+const _expandedBubbles = ref({});
 const hiddenBubbles = ref({});
 
 const handleCloseBubble = (agentId, bubbleKey, e) => {

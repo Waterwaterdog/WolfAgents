@@ -19,12 +19,16 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import secrets
 import threading
+import time
+import queue
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from game_service import run_game_session
@@ -121,6 +125,9 @@ class GameRuntime:
     log_path: str | None = None
     experience_path: str | None = None
     last_error: str | None = None
+    human_token: str | None = None
+    human_profile: dict[str, Any] | None = None
+    action_queue: queue.Queue | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -156,13 +163,31 @@ class PlayersInsightsResponse(BaseModel):
     players: dict[str, PlayerInsight] = {}
 
 
+class LoginRequest(BaseModel):
+    username: str
+    avatarUrl: str | None = None
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user: dict[str, Any]
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="WolfMind API", version="0.1.0")
 
     repo_root = Path(__file__).resolve().parents[1]
+    static_dir = repo_root / "static"
+    (static_dir / "avatars").mkdir(parents=True, exist_ok=True)
+    (static_dir / "backgrounds").mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     data_dir = repo_root / "data"
     logs_dir = data_dir / "game_logs"
-    experiences_dir = data_dir / "experiences"
 
     def _pick_latest_file(folder: Path, *, allowed_suffixes: tuple[str, ...]) -> Path | None:
         try:
@@ -319,6 +344,7 @@ def create_app() -> FastAPI:
 
     bus = EventBus()
     runtime = GameRuntime()
+    runtime.action_queue = queue.Queue()
 
     @app.on_event("startup")
     async def _startup() -> None:
@@ -337,7 +363,22 @@ def create_app() -> FastAPI:
             {"type": "system", "content": f"游戏启动中… (game_id={game_id})"})
 
         try:
-            log_path, experience_path = await run_game_session(game_id=game_id, event_sink=bus.publish, stop_event=stop_event)
+            with runtime.lock:
+                human_token = runtime.human_token
+                human_profile = runtime.human_profile
+                action_q = runtime.action_queue
+
+            human = None
+            if human_token and isinstance(human_profile, dict) and action_q is not None:
+                human = {**human_profile, "token": human_token}
+
+            log_path, experience_path = await run_game_session(
+                game_id=game_id,
+                event_sink=bus.publish,
+                stop_event=stop_event,
+                human=human,
+                action_queue=action_q,
+            )
             with runtime.lock:
                 runtime.log_path = log_path
                 runtime.experience_path = experience_path
@@ -479,6 +520,86 @@ def create_app() -> FastAPI:
             players=players,
         )
 
+    def _require_token(authorization: str | None) -> str:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing Authorization")
+        m = re.match(r"^Bearer\s+(.+)$", authorization.strip(), flags=re.I)
+        if not m:
+            raise HTTPException(status_code=401, detail="Invalid Authorization")
+        return m.group(1).strip()
+
+    @app.post("/api/login", response_model=LoginResponse)
+    async def login(body: LoginRequest) -> LoginResponse:
+        username = (body.username or "").strip()
+        if not username:
+            raise HTTPException(status_code=400, detail="Username required")
+        if len(username) > 20:
+            raise HTTPException(status_code=400, detail="Username too long")
+
+        token = secrets.token_urlsafe(24)
+        avatar_url = (body.avatarUrl or "").strip() or "/avatars/villager.svg"
+        user = {
+            "id": token[:10],
+            "username": username,
+            "avatarUrl": avatar_url,
+        }
+        with runtime.lock:
+            runtime.human_token = token
+            runtime.human_profile = user
+        bus.publish({"type": "system", "content": f"用户已登录：{username}"})
+        return LoginResponse(token=token, user=user)
+
+    @app.post("/api/logout")
+    async def logout(authorization: str | None = Header(default=None)) -> dict[str, str]:
+        token = _require_token(authorization)
+        with runtime.lock:
+            if runtime.human_token == token:
+                runtime.human_token = None
+                runtime.human_profile = None
+        return {"status": "ok"}
+
+    @app.get("/api/user")
+    async def get_user(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        token = _require_token(authorization)
+        with runtime.lock:
+            if runtime.human_token != token or not runtime.human_profile:
+                raise HTTPException(status_code=401, detail="Invalid session")
+            return {"user": runtime.human_profile}
+
+    @app.post("/api/upload/avatar")
+    async def upload_avatar(file: UploadFile = File(...), authorization: str | None = Header(default=None)) -> dict[str, str]:
+        token = _require_token(authorization)
+        with runtime.lock:
+            if runtime.human_token != token:
+                raise HTTPException(status_code=401, detail="Invalid session")
+
+        ct = (file.content_type or "").lower()
+        if ct not in {"image/png", "image/jpeg", "image/jpg"}:
+            raise HTTPException(status_code=400, detail="Only PNG/JPG allowed")
+
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Empty file")
+        if len(raw) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large")
+
+        suffix = ".png" if ct == "image/png" else ".jpg"
+        filename = f"{token[:10]}_{_now_ms()}{suffix}"
+        path = (static_dir / "avatars" / filename).resolve()
+        if static_dir.resolve() not in path.parents:
+            raise HTTPException(status_code=400, detail="Invalid path")
+        try:
+            path.write_bytes(raw)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail=str(exc))
+
+        avatar_url = f"/static/avatars/{filename}"
+        with runtime.lock:
+            if runtime.human_profile is not None:
+                runtime.human_profile["avatarUrl"] = avatar_url
+
+        return {"avatarUrl": avatar_url}
+
     @app.post("/api/game/start", response_model=StartGameResponse)
     async def start_game() -> StartGameResponse:
         with runtime.lock:
@@ -561,6 +682,7 @@ def create_app() -> FastAPI:
 
     @app.websocket("/ws/game")
     async def ws_game(ws: WebSocket) -> None:
+        token = ws.query_params.get("token")
         await ws.accept()
 
         q, snapshot = bus.subscribe()
@@ -586,19 +708,32 @@ def create_app() -> FastAPI:
                             # 基础 ping/pong
                             if raw:
                                 try:
-                                    import json
-
                                     msg = json.loads(raw)
                                     if isinstance(msg, dict) and msg.get("type") == "ping":
                                         await ws.send_json({"type": "pong"})
+                                        continue
+                                    if isinstance(msg, dict) and msg.get("type") in {"player_action", "player_ready"}:
+                                        with runtime.lock:
+                                            allowed = runtime.human_token and token and runtime.human_token == token
+                                            q_action = runtime.action_queue
+                                        if allowed and q_action is not None:
+                                            try:
+                                                q_action.put_nowait(msg)
+                                            except Exception:
+                                                pass
                                 except Exception:
                                     # 忽略非 JSON 文本
                                     pass
                         else:
                             event = d.result()
+                            private_to = event.get("privateTo") if isinstance(event, dict) else None
+                            if private_to and private_to != token:
+                                continue
                             await ws.send_json(event)
                 except WebSocketDisconnect:
                     break
+                except Exception:
+                    continue
         finally:
             bus.unsubscribe(q)
 
