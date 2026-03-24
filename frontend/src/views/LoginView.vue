@@ -61,6 +61,17 @@
       >
         继续游戏
       </button>
+
+      <div class="mt-4 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-semibold text-gray-700">前端</span>
+          <span class="truncate">{{ frontendOrigin }}</span>
+        </div>
+        <div class="mt-1 flex items-center justify-between gap-2">
+          <span class="font-semibold text-gray-700">后端</span>
+          <span class="truncate">{{ API_URL }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -78,6 +89,11 @@ const avatarPreview = ref("");
 const error = ref("");
 const loading = ref(false);
 const fileInput = ref(null);
+
+const frontendOrigin = computed(() => {
+  if (typeof window === "undefined" || !window.location) return "";
+  return window.location.origin || "";
+});
 
 const hasToken = computed(() => {
   try {
@@ -159,11 +175,15 @@ const start = async () => {
 
   loading.value = true;
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(`${API_URL}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: name }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`${res.status} ${text || res.statusText}`.trim());
@@ -175,11 +195,15 @@ const start = async () => {
     if (token && avatarFile.value) {
       const form = new FormData();
       form.append("file", avatarFile.value);
+      const upController = new AbortController();
+      const upTimer = setTimeout(() => upController.abort(), 15000);
       const up = await fetch(`${API_URL}/api/upload/avatar`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: form,
+        signal: upController.signal,
       });
+      clearTimeout(upTimer);
       if (up.ok) {
         const upData = await up.json().catch(() => ({}));
         const avatarUrl = upData?.avatarUrl;
@@ -191,7 +215,12 @@ const start = async () => {
 
     router.replace("/game");
   } catch (e) {
-    error.value = String(e?.message || e);
+    const msg = String(e?.message || e);
+    if (msg.toLowerCase().includes("aborted")) {
+      error.value = `请求超时：请确认后端已启动且可访问（当前后端：${API_URL}）`;
+    } else {
+      error.value = msg;
+    }
   } finally {
     loading.value = false;
   }
