@@ -422,6 +422,32 @@ async def werewolves_game(
     # 打印角色信息
     players.print_roles()
 
+    human_token = None
+    human_name = None
+    for a in agents:
+        t = getattr(a, "_token", None)
+        if t:
+            human_token = str(t)
+            human_name = str(getattr(a, "name", "") or "")
+            break
+
+    if callable(event_sink) and human_token and human_name and players.is_werewolf(human_name):
+        def _to_frontend_id(name: str) -> str:
+            s = str(name or "")
+            if s.lower().startswith("player"):
+                suffix = s[6:]
+                if suffix.isdigit():
+                    return f"player_{int(suffix)}"
+            return s
+
+        team_ids = [_to_frontend_id(n) for n, _alive in players.get_werewolf_team_status()]
+        event_sink({"type": "werewolf_team", "teamIds": team_ids, "privateTo": human_token})
+
+    if callable(event_sink) and human_token and human_name:
+        human_role = str(players.name_to_role.get(human_name) or "").strip()
+        if human_role:
+            event_sink({"type": "your_role", "role": human_role, "privateTo": human_token})
+
     # 记录玩家列表到日志
     players_info = [(name, role)
                     for name, role in players.name_to_role.items()]

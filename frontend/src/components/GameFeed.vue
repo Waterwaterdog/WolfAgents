@@ -51,10 +51,10 @@
             <div :style="{ fontSize: '13px', fontWeight: 800, color: getMessageStyle(m).labelColor }">
               {{ isSystemMessage(m) ? '系统' : (m.agent || '玩家') }}
               <span
-                v-if="!isSystemMessage(m) && m.role"
+                v-if="!isSystemMessage(m) && displayRole(m)"
                 style="color: #9ca3af; font-weight: 600;"
               >
-                · {{ m.role }}
+                · {{ displayRole(m) }}
               </span>
             </div>
             <div style="font-size: 11px; color: #9ca3af;">
@@ -76,13 +76,13 @@
             </div>
             <div v-else style="display: flex; flex-direction: column; gap: 8px;">
               <div
-                v-if="m.thought"
+                v-if="canShowThought(m)"
                 style="font-size: 13px; color: #6b7280; white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere;"
               >
                 <span style="font-weight: 700; color: #9ca3af;">心声：</span>{{ m.thought }}
               </div>
               <div
-                v-if="m.behavior"
+                v-if="canShowBehavior(m)"
                 :style="{
                   fontSize: '13px',
                   color: getMessageStyle(m).textColor,
@@ -130,6 +130,10 @@ import { computed, defineExpose, ref } from "vue";
 
 const props = defineProps({
   feed: { type: Array, default: () => [] },
+  viewerAgentId: { type: String, default: "" },
+  viewerAlignment: { type: String, default: "unknown" },
+  werewolfTeamIds: { type: [Array, Object], default: () => [] },
+  isReviewMode: { type: Boolean, default: false },
 });
 
 const containerRef = ref(null);
@@ -257,9 +261,40 @@ const normalizeFeedToMessages = (feed) => {
 
 const messages = computed(() => normalizeFeedToMessages(props.feed));
 
+const werewolfTeamSet = computed(() => {
+  const v = props.werewolfTeamIds;
+  if (v && typeof v === "object" && typeof v.has === "function") return v;
+  if (Array.isArray(v)) return new Set(v.map((x) => String(x || "")).filter(Boolean));
+  return new Set();
+});
+
+const canShowThought = (m) => {
+  if (!m || !m.thought) return false;
+  if (props.isReviewMode) return true;
+  if (props.viewerAlignment !== "werewolves") return false;
+  const agentId = String(m.agentId || "");
+  return werewolfTeamSet.value.has(agentId);
+};
+
+const canShowBehavior = (m) => {
+  if (!m || !m.behavior) return false;
+  if (props.isReviewMode) return true;
+  if (props.viewerAlignment !== "werewolves") return false;
+  const agentId = String(m.agentId || "");
+  return werewolfTeamSet.value.has(agentId);
+};
+
+const displayRole = (m) => {
+  if (!m || !m.role) return "";
+  if (props.isReviewMode) return String(m.role || "");
+  const agentId = String(m.agentId || "");
+  if (agentId && props.viewerAgentId && agentId === props.viewerAgentId) return String(m.role || "");
+  return "";
+};
+
 const hasStructured = (m) => {
-  const thought = String(m.thought || "").trim();
-  const behavior = String(m.behavior || "").trim();
+  const thought = canShowThought(m) ? String(m.thought || "").trim() : "";
+  const behavior = canShowBehavior(m) ? String(m.behavior || "").trim() : "";
   const speech = String(m.speech || "").trim();
   return Boolean(thought || behavior || speech);
 };

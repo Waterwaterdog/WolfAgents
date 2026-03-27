@@ -96,10 +96,13 @@ const frontendOrigin = computed(() => {
 });
 
 const hasToken = computed(() => {
+  let ok = false;
   try {
-    return Boolean(localStorage.getItem("wolfmind_token"));
+    ok = Boolean(localStorage.getItem("wolfmind_token"));
   } catch {
+    ok = false;
   }
+  if (ok) return true;
   try {
     return Boolean(sessionStorage.getItem("wolfmind_token"));
   } catch {
@@ -130,17 +133,20 @@ onBeforeUnmount(() => {
 });
 
 const saveSession = ({ token, user }) => {
+  let stored = false;
   try {
     localStorage.setItem("wolfmind_token", token);
     localStorage.setItem("wolfmind_user", JSON.stringify(user || {}));
-    return;
+    stored = true;
   } catch {
+    stored = false;
   }
+  if (stored) return;
   try {
     sessionStorage.setItem("wolfmind_token", token);
     sessionStorage.setItem("wolfmind_user", JSON.stringify(user || {}));
   } catch {
-    // ignore
+    return;
   }
 };
 
@@ -152,15 +158,15 @@ const updateUser = (patch) => {
     localStorage.setItem("wolfmind_user", JSON.stringify(next));
     return next;
   } catch {
-  }
-  try {
-    const raw = sessionStorage.getItem("wolfmind_user") || "{}";
-    const prev = JSON.parse(raw);
-    const next = { ...(prev || {}), ...(patch || {}) };
-    sessionStorage.setItem("wolfmind_user", JSON.stringify(next));
-    return next;
-  } catch {
-    return patch || {};
+    try {
+      const raw = sessionStorage.getItem("wolfmind_user") || "{}";
+      const prev = JSON.parse(raw);
+      const next = { ...(prev || {}), ...(patch || {}) };
+      sessionStorage.setItem("wolfmind_user", JSON.stringify(next));
+      return next;
+    } catch {
+      return patch || {};
+    }
   }
 };
 

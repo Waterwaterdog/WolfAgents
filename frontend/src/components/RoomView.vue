@@ -14,7 +14,7 @@
           @mouseenter="handleTopAgentMouseEnter(agent.id)"
           @mouseleave="handleTopAgentMouseLeave"
         >
-          <div class="agent-avatar-wrapper">
+          <div class="agent-avatar-wrapper" style="position: relative;">
             <img
               :src="agent.avatar"
               :alt="agent.name"
@@ -24,6 +24,28 @@
                 opacity: agent.alive === false ? 0.6 : 1,
               }"
             />
+            <span
+              v-if="agent.isWerewolfTeammate"
+              style="
+                position: absolute;
+                top: -3px;
+                left: -3px;
+                width: 18px;
+                height: 18px;
+                border-radius: 999px;
+                background: #ef4444;
+                border: 2px solid #ffffff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                color: #ffffff;
+                font-weight: 900;
+                pointer-events: none;
+              "
+            >
+              狼
+            </span>
             <span class="agent-indicator-dot" :style="{ display: agent.alive === false ? 'none' : 'block' }" />
             <span
               v-if="agent.alive === false"
@@ -207,6 +229,28 @@
                   :alt="entry.agent.name"
                   class="room-agent-avatar"
                 />
+                <div
+                  v-if="entry.agent.isWerewolfTeammate"
+                  style="
+                    position: absolute;
+                    top: -6px;
+                    left: -6px;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 999px;
+                    background: #ef4444;
+                    border: 2px solid rgba(255,255,255,0.95);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    color: #ffffff;
+                    font-weight: 900;
+                    pointer-events: none;
+                  "
+                >
+                  狼
+                </div>
                 <div v-if="entry.agent.alive === false" class="room-agent-dead-badge">
                   ✕
                 </div>
@@ -331,7 +375,7 @@
         <div ref="agentCardWrapper" class="agent-card-wrapper" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1001; pointer-events: none;">
           <div style="pointer-events: auto; position: relative; width: 100%; height: 100%;">
             <div ref="cardContainerRef">
-              <AgentCard :agent="selectedAgent" :is-closing="isClosing" />
+              <AgentCard :agent="selectedAgent" :is-closing="isClosing" :viewer-agent-id="viewerAgentId" :reveal-roles="revealRoles" />
             </div>
           </div>
         </div>
@@ -419,9 +463,11 @@ const props = defineProps({
   feed: { type: Array, default: () => [] },
   onJumpToMessage: { type: Function, default: null },
   phaseText: { type: String, default: "" },
+  viewerAgentId: { type: String, default: "" },
+  revealRoles: { type: Boolean, default: false },
 });
 
-const { agents, bubbles: _bubbles, leaderboard, feed, onJumpToMessage, phaseText } = toRefs(props);
+const { agents, bubbles: _bubbles, leaderboard, feed, onJumpToMessage, phaseText, viewerAgentId, revealRoles } = toRefs(props);
 
 const containerRef = ref(null);
 

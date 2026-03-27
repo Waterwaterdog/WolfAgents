@@ -128,6 +128,8 @@ class GameRuntime:
     human_token: str | None = None
     human_profile: dict[str, Any] | None = None
     action_queue: queue.Queue | None = None
+    viewer_roles: dict[str, str] = field(default_factory=dict)
+    werewolf_teams: dict[str, set[str]] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -358,6 +360,8 @@ def create_app() -> FastAPI:
             runtime.last_error = None
             runtime.log_path = None
             runtime.experience_path = None
+            runtime.viewer_roles = {}
+            runtime.werewolf_teams = {}
 
         bus.publish(
             {"type": "system", "content": f"游戏启动中… (game_id={game_id})"})
@@ -685,11 +689,101 @@ def create_app() -> FastAPI:
         token = ws.query_params.get("token")
         await ws.accept()
 
+        def _is_review_mode() -> bool:
+            with runtime.lock:
+                return runtime.status != "running"
+
+        def _viewer_role() -> str:
+            if not token:
+                return ""
+            with runtime.lock:
+                return str(runtime.viewer_roles.get(token) or "")
+
+        def _werewolf_team() -> set[str]:
+            if not token:
+                return set()
+            with runtime.lock:
+                return set(runtime.werewolf_teams.get(token) or set())
+
+        def _record_viewer_state(event: dict[str, Any]) -> None:
+            if not token:
+                return
+            et = str(event.get("type") or "")
+            if et == "your_role":
+                r = str(event.get("role") or "").strip().lower()
+                if r:
+                    with runtime.lock:
+                        runtime.viewer_roles[token] = r
+            if et == "werewolf_team":
+                ids = event.get("teamIds")
+                if isinstance(ids, list):
+                    team = {str(x or "") for x in ids if str(x or "").strip()}
+                    with runtime.lock:
+                        runtime.werewolf_teams[token] = team
+
+        def _project_event(event: dict[str, Any]) -> dict[str, Any] | None:
+            if not isinstance(event, dict):
+                return None
+
+            private_to = event.get("privateTo")
+            if private_to and private_to != token:
+                return None
+
+            e = dict(event)
+            _record_viewer_state(e)
+
+            if _is_review_mode():
+                return e
+
+            et = str(e.get("type") or "")
+            viewer_role = _viewer_role()
+            is_werewolf = viewer_role == "werewolf"
+            wolf_team = _werewolf_team()
+
+            public_categories = {"白天讨论", "发言", "PK发言"}
+            wolf_private_categories = {"狼人讨论", "狼人投票", "狼人投票结果"}
+
+            if et in {"agent_message", "conference_message"}:
+                category = str(e.get("category") or "")
+                is_public = category in public_categories or category.startswith("PK发言")
+                if not is_public:
+                    if not (is_werewolf and category in wolf_private_categories):
+                        return None
+
+                agent_id = str(e.get("agentId") or "")
+                allow_thought = is_werewolf and agent_id in wolf_team
+                if not allow_thought:
+                    e["thought"] = ""
+                    e["behavior"] = ""
+                    speech = str(e.get("speech") or "").strip()
+                    if speech:
+                        e["content"] = speech
+                e.pop("role", None)
+                return e
+
+            if et == "agent_typing":
+                category = str(e.get("category") or "")
+                is_public = category in public_categories or category.startswith("PK发言") or "遗言" in category
+                if not is_public:
+                    if not (is_werewolf and category.startswith("狼人")):
+                        return None
+                return e
+
+            return e
+
         q, snapshot = bus.subscribe()
         try:
             # 先发送历史缓冲（回放）
             if snapshot:
-                await ws.send_json({"type": "historical", "events": snapshot})
+                chronological = list(reversed(snapshot))
+                projected_chrono: list[dict[str, Any]] = []
+                for raw in chronological:
+                    if not isinstance(raw, dict):
+                        continue
+                    projected = _project_event(raw)
+                    if projected is not None:
+                        projected_chrono.append(projected)
+                await ws.send_json({"type": "historical", "events": list(reversed(projected_chrono))})
 
             while True:
                 # 同时等待：客户端消息（用于 ping）或服务端新事件
@@ -726,10 +820,12 @@ def create_app() -> FastAPI:
                                     pass
                         else:
                             event = d.result()
-                            private_to = event.get("privateTo") if isinstance(event, dict) else None
-                            if private_to and private_to != token:
+                            if not isinstance(event, dict):
                                 continue
-                            await ws.send_json(event)
+                            projected = _project_event(event)
+                            if projected is None:
+                                continue
+                            await ws.send_json(projected)
                 except WebSocketDisconnect:
                     break
                 except Exception:

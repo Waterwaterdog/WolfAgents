@@ -3,11 +3,13 @@ import LoginView from "../views/LoginView.vue";
 import GameView from "../views/GameView.vue";
 
 const getToken = () => {
+  let v = "";
   try {
-    const v = localStorage.getItem("wolfmind_token");
-    if (v) return v;
+    v = localStorage.getItem("wolfmind_token") || "";
   } catch {
+    v = "";
   }
+  if (v) return v;
   try {
     return sessionStorage.getItem("wolfmind_token") || "";
   } catch {

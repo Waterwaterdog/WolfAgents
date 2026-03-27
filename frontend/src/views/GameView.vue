@@ -29,15 +29,36 @@
           :leaderboard="[]"
           :feed="feed"
           :phase-text="phaseText"
+          :viewer-agent-id="viewerAgentId"
+          :reveal-roles="isReviewMode"
           :on-jump-to-message="handleJumpToMessage"
         />
       </div>
-      <div style="width: 40%; min-width: 360px; display: flex; flex-direction: column; min-height: 0;">
-        <div style="height: 44%; min-height: 220px; border-bottom: 1px solid #e0e0e0;">
+      <div
+        ref="rightPanelRef"
+        style="width: 40%; min-width: 360px; display: flex; flex-direction: column; min-height: 0;"
+      >
+        <div :style="actionPanelStyle">
           <PlayerActions :turn="pendingTurn" :on-submit="submitTurn" />
         </div>
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          :aria-valuenow="Math.round(actionPanelHeightPx || 0)"
+          :aria-valuemin="ACTION_PANEL_MIN_HEIGHT"
+          :aria-valuemax="splitMaxHeight"
+          :style="splitterStyle"
+          @pointerdown="handleSplitterPointerDown"
+        />
         <div style="flex: 1; min-height: 0;">
-          <GameFeed ref="feedRef" :feed="feed" />
+          <GameFeed
+            ref="feedRef"
+            :feed="feed"
+            :viewer-agent-id="viewerAgentId"
+            :viewer-alignment="viewerAlignment"
+            :werewolf-team-ids="werewolfTeamIds"
+            :is-review-mode="isReviewMode"
+          />
         </div>
       </div>
     </div>
@@ -61,21 +82,30 @@ const extractBubbleText = (content) => {
 };
 
 const loadSession = () => {
+  let token = "";
+  let user = {};
   try {
-    const token = localStorage.getItem("wolfmind_token") || "";
+    token = localStorage.getItem("wolfmind_token") || "";
     const userRaw = localStorage.getItem("wolfmind_user") || "{}";
-    const user = JSON.parse(userRaw);
-    return { token, user: user && typeof user === "object" ? user : {} };
+    const parsed = JSON.parse(userRaw);
+    user = parsed && typeof parsed === "object" ? parsed : {};
   } catch {
+    token = "";
+    user = {};
   }
+
+  if (token) return { token, user };
+
   try {
-    const token = sessionStorage.getItem("wolfmind_token") || "";
+    token = sessionStorage.getItem("wolfmind_token") || "";
     const userRaw = sessionStorage.getItem("wolfmind_user") || "{}";
-    const user = JSON.parse(userRaw);
-    return { token, user: user && typeof user === "object" ? user : {} };
+    const parsed = JSON.parse(userRaw);
+    user = parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return { token: "", user: {} };
   }
+
+  return { token, user };
 };
 
 const { token: sessionToken, user: sessionUser } = loadSession();
@@ -92,6 +122,13 @@ const pendingTurn = ref(null);
 const gameStatus = ref({ status: "idle", gameId: null, logPath: null, experiencePath: null });
 
 const agents = ref([...DEFAULT_AGENTS]);
+const viewerAgentId = "player_1";
+const werewolfTeamIds = ref(new Set());
+const rightPanelRef = ref(null);
+const actionPanelHeightPx = ref(null);
+const isDraggingSplit = ref(false);
+let splitStartY = 0;
+let splitStartHeight = 0;
 
 const getAgentById = (agentId) => {
   if (!agentId) return null;
@@ -177,6 +214,72 @@ const mapPlayerNameToAgentId = (name) => {
   return null;
 };
 
+const viewerAlignment = computed(() => getAgentById(viewerAgentId)?.alignment || "unknown");
+
+const isReviewMode = computed(() => !isGameRunning.value && (feed.value?.length || 0) > 0);
+
+const ACTION_PANEL_MIN_HEIGHT = 220;
+const FEED_MIN_HEIGHT = 220;
+const SPLITTER_HEIGHT = 8;
+
+const splitMaxHeight = computed(() => {
+  const container = rightPanelRef.value;
+  const total = container ? container.clientHeight : 0;
+  return Math.max(ACTION_PANEL_MIN_HEIGHT, total - FEED_MIN_HEIGHT - SPLITTER_HEIGHT);
+});
+
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+const ensureActionPanelHeight = () => {
+  const container = rightPanelRef.value;
+  if (!container) return;
+
+  const total = container.clientHeight;
+  if (!Number.isFinite(total) || total <= 0) return;
+
+  const maxH = splitMaxHeight.value;
+  const next = actionPanelHeightPx.value == null ? Math.round(total * 0.44) : actionPanelHeightPx.value;
+  actionPanelHeightPx.value = clamp(next, ACTION_PANEL_MIN_HEIGHT, maxH);
+};
+
+const actionPanelStyle = computed(() => ({
+  height: `${actionPanelHeightPx.value || ACTION_PANEL_MIN_HEIGHT}px`,
+  minHeight: `${ACTION_PANEL_MIN_HEIGHT}px`,
+  borderBottom: "1px solid #e0e0e0",
+}));
+
+const splitterStyle = computed(() => ({
+  height: `${SPLITTER_HEIGHT}px`,
+  flexShrink: 0,
+  background: isDraggingSplit.value ? "#d1d5db" : "#e5e7eb",
+  cursor: "row-resize",
+}));
+
+const handleSplitterPointerMove = (e) => {
+  const container = rightPanelRef.value;
+  if (!container) return;
+  const dy = e.clientY - splitStartY;
+  const maxH = splitMaxHeight.value;
+  actionPanelHeightPx.value = clamp(splitStartHeight + dy, ACTION_PANEL_MIN_HEIGHT, maxH);
+};
+
+const handleSplitterPointerUp = () => {
+  isDraggingSplit.value = false;
+  document.body.style.userSelect = "";
+  window.removeEventListener("pointermove", handleSplitterPointerMove);
+  window.removeEventListener("pointerup", handleSplitterPointerUp);
+};
+
+const handleSplitterPointerDown = (e) => {
+  ensureActionPanelHeight();
+  isDraggingSplit.value = true;
+  splitStartY = e.clientY;
+  splitStartHeight = actionPanelHeightPx.value || ACTION_PANEL_MIN_HEIGHT;
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", handleSplitterPointerMove);
+  window.addEventListener("pointerup", handleSplitterPointerUp);
+};
+
 const applyPlayersInit = (players) => {
   if (!Array.isArray(players) || players.length === 0) return;
 
@@ -189,12 +292,16 @@ const applyPlayersInit = (players) => {
 
     const base = byId.get(agentId) || { id: agentId, name: agentId };
     const seatNum = agentId.startsWith("player_") ? agentId.slice(7) : "";
-    const meta = roleMetaFromRole(p?.role);
+    const isViewer = agentId === viewerAgentId;
+    const serverRoleRaw = String(p?.role || "").trim();
+    const baseRoleRaw = String(base.role || "").trim();
+    const nextRole = isViewer ? (serverRoleRaw && serverRoleRaw !== "未知" ? serverRoleRaw : baseRoleRaw === "未知" ? "" : baseRoleRaw) : "未知";
+    const meta = roleMetaFromRole(isViewer ? nextRole : "");
     byId.set(agentId, {
       ...base,
       id: agentId,
       name: seatNum ? `${Number(seatNum)}号` : base.name,
-      role: String(p?.role || "未知"),
+      role: nextRole,
       alignment: meta.alignment,
       avatar: meta.avatar,
       colors: meta.colors,
@@ -495,6 +602,8 @@ onMounted(() => {
   }
 
   setBackground("day");
+  ensureActionPanelHeight();
+  window.addEventListener("resize", ensureActionPanelHeight);
 
   const onEvent = (evt) => {
     if (!evt || !evt.type) return;
@@ -505,12 +614,23 @@ onMounted(() => {
     }
 
     if (evt.type === "your_role") {
-      const role = String(evt.role || "").trim() || "未知";
+      const role = String(evt.role || "").trim();
+      if (!role) return;
       const meta = roleMetaFromRole(role);
       agents.value = agents.value.map((a) =>
         a.id === "player_1" ? { ...a, role, alignment: meta.alignment, avatar: meta.avatar, colors: meta.colors } : a
       );
       addSystemMessage(`你的身份：${role}`);
+      return;
+    }
+
+    if (evt.type === "werewolf_team") {
+      const ids = Array.isArray(evt.teamIds) ? evt.teamIds : [];
+      werewolfTeamIds.value = new Set(ids.map((x) => String(x || "")).filter(Boolean));
+      agents.value = agents.value.map((a) => {
+        const isMate = werewolfTeamIds.value.has(a.id) && a.id !== viewerAgentId;
+        return { ...a, isWerewolfTeammate: isMate };
+      });
       return;
     }
 
@@ -592,6 +712,8 @@ onBeforeUnmount(() => {
     clearInterval(statusTimer);
     statusTimer = null;
   }
+  window.removeEventListener("resize", ensureActionPanelHeight);
+  handleSplitterPointerUp();
 
   const timers = bubbleTimersRef.value || {};
   Object.keys(timers).forEach((k) => clearTimeout(timers[k]));

@@ -63,10 +63,17 @@ import { computed } from "vue";
 const props = defineProps({
   agent: { type: Object, default: null },
   isClosing: { type: Boolean, default: false },
+  viewerAgentId: { type: String, default: "" },
+  revealRoles: { type: Boolean, default: false },
 });
 
 const displayName = computed(() => props.agent?.name || props.agent?.id || "");
-const role = computed(() => props.agent?.role || "未知身份");
+const canRevealRole = computed(() => Boolean(props.revealRoles) || (props.viewerAgentId && props.agent?.id === props.viewerAgentId));
+const role = computed(() => {
+  if (!canRevealRole.value) return "未知身份";
+  const r = String(props.agent?.role || "").trim();
+  return r || "发牌中…";
+});
 const alignment = computed(() => props.agent?.alignment || "unknown");
 const alignmentLabel = computed(() =>
   alignment.value === "werewolves" ? "狼人阵营" : alignment.value === "villagers" ? "好人阵营" : "未知阵营"
