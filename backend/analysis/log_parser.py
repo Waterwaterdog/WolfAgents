@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""解析 WolfMind 游戏日志（.log），生成供 LLM 分析的结构化数据。"""
+"""解析 WolfAgents 游戏日志（.log），生成供 LLM 分析的结构化数据。"""
 
 from __future__ import annotations
 

@@ -657,6 +657,38 @@ body {
   border-radius: 12px;
 }
 
+.room-scene-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.04), transparent 28%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.08) 0%, rgba(2, 6, 23, 0.24) 100%);
+}
+
+.room-scene-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  transition: opacity 1s ease;
+}
+
+.room-scene-wrapper.is-day .room-scene-glow {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 244, 214, 0.45), transparent 18%),
+    radial-gradient(circle at 50% 82%, rgba(125, 211, 252, 0.14), transparent 30%);
+}
+
+.room-scene-wrapper.is-night .room-scene-glow {
+  background:
+    radial-gradient(circle at 78% 14%, rgba(196, 181, 253, 0.26), transparent 20%),
+    radial-gradient(circle at 52% 85%, rgba(59, 130, 246, 0.12), transparent 30%);
+}
+
 /* ========== 动态背景系统 ========== */
 .room-background-layer {
   position: absolute;
@@ -670,27 +702,26 @@ body {
   position: absolute;
   inset: 0;
   transition: background 1.5s ease;
+  opacity: 0.72;
 }
 
 .is-day .sky-gradient {
   background: linear-gradient(
     180deg,
-    #2563eb 0%,
-    #3b82f6 25%,
-    #60a5fa 50%,
-    #93c5fd 75%,
-    #e0f2fe 100%
+    rgba(14, 116, 144, 0.28) 0%,
+    rgba(59, 130, 246, 0.18) 28%,
+    rgba(125, 211, 252, 0.12) 58%,
+    rgba(224, 242, 254, 0.1) 100%
   );
 }
 
 .is-night .sky-gradient {
   background: linear-gradient(
     180deg,
-    #020617 0%,
-    #0f172a 25%,
-    #1e1b4b 50%,
-    #312e81 80%,
-    #4338ca 100%
+    rgba(2, 6, 23, 0.34) 0%,
+    rgba(15, 23, 42, 0.26) 30%,
+    rgba(49, 46, 129, 0.16) 68%,
+    rgba(30, 41, 59, 0.1) 100%
   );
 }
 
@@ -1016,19 +1047,19 @@ body {
 .is-day .ground-layer {
   background: linear-gradient(
     180deg,
-    rgba(144, 238, 144, 0.3) 0%,
-    rgba(107, 142, 35, 0.4) 30%,
-    rgba(85, 107, 47, 0.5) 60%,
-    rgba(60, 80, 40, 0.6) 100%
+    rgba(187, 247, 208, 0.12) 0%,
+    rgba(74, 222, 128, 0.14) 30%,
+    rgba(22, 101, 52, 0.22) 60%,
+    rgba(20, 83, 45, 0.42) 100%
   );
 }
 
 .is-night .ground-layer {
   background: linear-gradient(
     180deg,
-    rgba(20, 30, 50, 0.7) 0%,
-    rgba(15, 20, 35, 0.8) 50%,
-    rgba(10, 15, 25, 0.9) 100%
+    rgba(15, 23, 42, 0.2) 0%,
+    rgba(15, 23, 42, 0.36) 50%,
+    rgba(2, 6, 23, 0.78) 100%
   );
 }
 
@@ -1056,9 +1087,51 @@ body {
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(100, 80, 150, 0.3) 50%,
+    rgba(139, 92, 246, 0.2) 50%,
     transparent 100%
   );
+}
+
+.room-magic-mist {
+  position: absolute;
+  bottom: -8%;
+  width: 42%;
+  height: 38%;
+  border-radius: 50%;
+  filter: blur(20px);
+  z-index: 5;
+  pointer-events: none;
+  animation: mistDrift 14s ease-in-out infinite;
+}
+
+.room-magic-mist--left {
+  left: -6%;
+  animation-delay: 0s;
+}
+
+.room-magic-mist--right {
+  right: -6%;
+  animation-delay: -7s;
+}
+
+.room-scene-wrapper.is-day .room-magic-mist {
+  background: radial-gradient(circle, rgba(191, 219, 254, 0.2) 0%, rgba(255, 255, 255, 0.04) 55%, transparent 100%);
+}
+
+.room-scene-wrapper.is-night .room-magic-mist {
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.12) 0%, rgba(59, 130, 246, 0.08) 45%, transparent 100%);
+}
+
+@keyframes mistDrift {
+  0%, 100% {
+    transform: translateX(0) translateY(0) scale(1);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: translateX(10px) translateY(-10px) scale(1.06);
+    opacity: 0.82;
+  }
 }
 
 /* 萤火虫层 */
@@ -2645,7 +2718,7 @@ body {
   object-fit: cover;
 }
 
-/* 说话时效�?*/
+/* 说话时效�?*/
 .room-agent-node.is-speaking .room-agent-avatar {
   border-color: #4ade80; /* 绿色边框 */
   box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.3), 0 0 20px rgba(74, 222, 128, 0.5); /* 双重发光 */

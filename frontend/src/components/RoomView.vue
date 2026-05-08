@@ -116,9 +116,20 @@
             width: Math.round((SCENE_NATIVE?.width || 1248) * scale) + 'px',
             height: Math.round((SCENE_NATIVE?.height || 832) * scale) + 'px',
             margin: '0 auto',
-            backgroundColor: sceneMode === 'day' ? '#87ceeb' : '#0a0a1f'
+            backgroundImage: sceneMode === 'day'
+              ? 'linear-gradient(180deg, rgba(8, 47, 73, 0.18) 0%, rgba(186, 230, 253, 0.12) 45%, rgba(15, 23, 42, 0.42) 100%), url(/theme/day-castle.jpg)'
+              : 'linear-gradient(180deg, rgba(2, 6, 23, 0.2) 0%, rgba(15, 23, 42, 0.24) 35%, rgba(2, 6, 23, 0.72) 100%), url(/theme/night-castle.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            backgroundRepeat: 'no-repeat',
+            boxShadow: sceneMode === 'day'
+              ? '0 24px 60px rgba(14, 116, 144, 0.2)'
+              : '0 24px 70px rgba(15, 23, 42, 0.45)'
           }"
         >
+          <div class="room-scene-vignette" />
+          <div class="room-scene-glow" />
+
           <div class="room-background-layer">
             <div class="sky-gradient" />
 
@@ -162,6 +173,8 @@
 
             <div class="ground-layer" />
             <div class="horizon-glow" />
+            <div class="room-magic-mist room-magic-mist--left" />
+            <div class="room-magic-mist room-magic-mist--right" />
 
             <div class="fireflies-layer">
               <div

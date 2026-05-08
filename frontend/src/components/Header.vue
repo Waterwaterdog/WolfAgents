@@ -6,10 +6,10 @@
     >
       <img
         :src="ASSETS.logo"
-        alt="WolfMind"
+        alt="WolfAgents"
         style="height: 24px; width: 24px;"
       />
-      WolfMind
+      WolfAgents
     </span>
 
     <span
@@ -53,6 +53,23 @@
       "
     >
       {{ statusText }}
+    </span>
+
+    <span
+      v-if="username"
+      style="
+        padding: 1px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #dbeafe;
+        background: linear-gradient(135deg, #1d4ed8, #312e81);
+        border: 1px solid rgba(191, 219, 254, 0.3);
+        border-radius: 999px;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      "
+    >
+      当前用户：{{ username }}
     </span>
 
     <button
@@ -154,6 +171,30 @@
     >
       {{ exportExperienceLabel }}
     </button>
+
+    <button
+      type="button"
+      :disabled="!onLogout"
+      @click="onLogout && onLogout()"
+      style="
+        margin-left: 12px;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        border-radius: 999px;
+        border: 1px solid #fca5a5;
+        background: rgba(127, 29, 29, 0.08);
+        color: #991b1b;
+        white-space: nowrap;
+      "
+      :style="{
+        cursor: !onLogout ? 'not-allowed' : 'pointer',
+        opacity: !onLogout ? 0.55 : 1
+      }"
+    >
+      {{ logoutLabel }}
+    </button>
   </div>
 </template>
 
@@ -163,6 +204,7 @@ import { ASSETS } from "../config/constants";
 defineProps({
   statusText: { type: String, default: "等待连接" },
   phaseText: { type: String, default: "准备中" },
+  username: { type: String, default: "" },
   onStartGame: { type: Function, default: null },
   startDisabled: { type: Boolean, default: false },
   startLabel: { type: String, default: "开始游戏" },
@@ -175,5 +217,7 @@ defineProps({
   onExportExperience: { type: Function, default: null },
   exportExperienceDisabled: { type: Boolean, default: false },
   exportExperienceLabel: { type: String, default: "导出经验" },
+  onLogout: { type: Function, default: null },
+  logoutLabel: { type: String, default: "退出游戏" },
 });
 </script>
