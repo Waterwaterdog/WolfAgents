@@ -1,10 +1,10 @@
-# WolfMind：多Agent狼人杀
+# WolfAgents：多Agent狼人杀游戏平台
 
 <div align="center">
 
-基于 LLM + AgentScope 的 9 人狼人杀AI游戏
+基于 LLM + AgentScope 的 9 人狼人杀 AI 游戏
 
-![前端界面预览](./static/frontend.png)
+![登录界面](./photos/登录.png)
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![AgentScope](https://img.shields.io/badge/AgentScope-0.1.0+-green.svg)](https://github.com/modelscope/agentscope)
@@ -20,7 +20,15 @@
 
 ## 简介
 
-这是一个基于大语言模型（LLM）和多智能体框架 AgentScope 构建的狼人杀游戏系统。9 个 AI 智能体将扮演不同角色（狼人、村民、预言家、女巫、猎人），通过自然语言进行推理、讨论、投票，展现出复杂的策略博弈和社交推理能力，并提供 Web 控制台用于启动/停止游戏与实时查看对局日志。
+这是一个基于大语言模型（LLM）和多智能体框架 AgentScope 构建的狼人杀游戏系统。9 个 AI 智能体将扮演不同角色（狼人、村民、预言家、女巫、猎人），通过自然语言进行推理、讨论、投票，展现出复杂的策略博弈和社交推理能力，并提供 Web 控制台用于登录、启动/停止游戏、导出对局资料与实时查看对局日志。
+
+### 界面预览
+
+新版前端采用蓝黑色系与魔法城堡主题，包含登录页、白天场景和夜晚场景三套视觉效果：
+
+![登录页](./photos/登录.png)
+![白天场景](./photos/白天.jpg)
+![夜晚场景](./photos/晚上.jpg)
 
 ### 核心亮点
 
@@ -47,8 +55,13 @@
 - ✅ 玩家画像和对手建模
 - ✅ AI 智能体自主学习和策略优化
 - ✅ 经验和策略知识库
-- ✅ Web 控制台：日志列表/查看、自动刷新、启动/停止游戏
+- ✅ Web 控制台：登录页、退出游戏、日志列表/查看、自动刷新、启动/停止游戏
 - ✅ 基于日志的深度数据分析（心理分析、社交网络分析）
+
+### 默认登录账号
+
+- 用户 `user`，密码 `user123`
+- 管理员 `admin`，密码 `admin123`
 
 ## 快速开始
 
@@ -61,8 +74,8 @@
 ### 1) 安装
 
 ```bash
-git clone https://github.com/KeLuoJun/WolfMind.git
-cd WolfMind
+git clone https://github.com/Waterwaterdog/WolfAgents.git
+cd WolfAgents
 
 # 一键安装前后端依赖
 npm run setup:all
@@ -155,7 +168,7 @@ AUTO_ANALYZE=false
 ## 项目结构
 
 ```
-WolfMind/
+WolfAgents/
 ├── .env.example              # 环境变量模板
 ├── backend/                  # 后端核心
 │   ├── main.py               # 入口：启动一局完整对局

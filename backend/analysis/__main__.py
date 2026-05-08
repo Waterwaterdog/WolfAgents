@@ -24,7 +24,7 @@ from analysis.pipeline import run_analysis  # noqa: E402
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Generate WolfMind analysis report HTML")
+        description="Generate WolfAgents analysis report HTML")
     p.add_argument("--log", required=True, help="Path to game_*.log")
     p.add_argument("--experience", default=None,
                    help="Path to players_experience_*.json")

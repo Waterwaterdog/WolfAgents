@@ -1,9 +1,67 @@
 <template>
-  <div class="app">
+  <div v-if="!isAuthenticated" class="login-screen">
+    <div class="login-screen__veil" />
+    <span
+      v-for="spark in loginSparks"
+      :key="spark.id"
+      class="login-screen__spark"
+      :style="{
+        left: spark.left,
+        top: spark.top,
+        animationDelay: spark.delay,
+        animationDuration: spark.duration,
+      }"
+    />
+
+    <div class="login-panel">
+      <div class="login-panel__crest">Magic Castle</div>
+      <h1 class="login-panel__title">天黑请闭眼</h1>
+      <p class="login-panel__subtitle">欢迎来到我们的狼人杀游戏</p>
+
+      <form class="login-form" @submit.prevent="handleLogin">
+        <label class="login-form__field">
+          <span>用户名</span>
+          <input
+            v-model.trim="loginForm.username"
+            type="text"
+            autocomplete="username"
+            placeholder="请输入用户名"
+          />
+        </label>
+
+        <label class="login-form__field">
+          <span>密码</span>
+          <input
+            v-model="loginForm.password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="请输入密码"
+          />
+        </label>
+
+        <p v-if="loginError" class="login-form__error">
+          {{ loginError }}
+        </p>
+
+        <button class="login-form__submit" type="submit" :disabled="isLoggingIn">
+          {{ isLoggingIn ? "进入中…" : "进入游戏" }}
+        </button>
+      </form>
+
+      <div class="login-panel__tips">
+        <span>测试账号：</span>
+        <span>user / user123</span>
+        <span>admin / admin123</span>
+      </div>
+    </div>
+  </div>
+
+  <div v-else class="app app--game">
     <div class="header">
       <Header
         :status-text="statusText"
         :phase-text="phaseText"
+        :username="authenticatedUser"
         :on-start-game="startGame"
         :on-stop-game="stopGame"
         :start-disabled="startingGame || isGameRunning"
@@ -16,11 +74,13 @@
         :on-export-experience="exportExperience"
         :export-experience-disabled="exportingExperience"
         :export-experience-label="exportingExperience ? '导出中…' : '导出经验'"
+        :on-logout="handleLogout"
+        logout-label="退出游戏"
       />
     </div>
 
-    <div style="flex: 1; min-height: 0; display: flex;">
-      <div style="width: 60%; min-width: 0; border-right: 1px solid #e0e0e0;">
+    <div class="game-layout">
+      <div class="game-layout__room">
         <RoomView
           :agents="agents"
           :bubbles="bubbles"
@@ -31,7 +91,7 @@
           :on-jump-to-message="handleJumpToMessage"
         />
       </div>
-      <div style="width: 40%; min-width: 360px;">
+      <div class="game-layout__feed">
         <GameFeed ref="feedRef" :feed="feed" />
       </div>
     </div>
@@ -39,7 +99,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import Header from "./components/Header.vue";
 import RoomView from "./components/RoomView.vue";
 import GameFeed from "./components/GameFeed.vue";
@@ -48,10 +108,30 @@ import { DEFAULT_AGENTS, API_URL, BUBBLE_LIFETIME_MS, TYPING_LIFETIME_MS, ASSETS
 import { ReadOnlyClient } from "./services/websocket";
 import { useFeedProcessor } from "./hooks/useFeedProcessor";
 
+const AUTH_STORAGE_KEY = "wolfagents_auth_user";
+const VALID_USERS = {
+  user: "user123",
+  admin: "admin123",
+};
+
+const loginSparks = [
+  { id: 1, left: "10%", top: "16%", delay: "0s", duration: "4.8s" },
+  { id: 2, left: "22%", top: "72%", delay: "1.2s", duration: "5.4s" },
+  { id: 3, left: "36%", top: "28%", delay: "0.6s", duration: "4.6s" },
+  { id: 4, left: "61%", top: "18%", delay: "2.2s", duration: "5.8s" },
+  { id: 5, left: "73%", top: "67%", delay: "1.8s", duration: "4.9s" },
+  { id: 6, left: "86%", top: "34%", delay: "2.8s", duration: "5.1s" },
+];
+
 const extractBubbleText = (content) => {
   const text = String(content || "");
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 };
+
+const authenticatedUser = ref(window.localStorage.getItem(AUTH_STORAGE_KEY) || "");
+const loginForm = ref({ username: "", password: "" });
+const loginError = ref("");
+const isLoggingIn = ref(false);
 
 const connectionStatus = ref("connecting");
 const phaseText = ref("准备中");
@@ -69,7 +149,7 @@ const getAgentById = (agentId) => {
   return agents.value.find((a) => a.id === agentId) || null;
 };
 
-const { feed, processHistoricalFeed, processFeedEvent, addSystemMessage } = useFeedProcessor({ getAgentById });
+const { feed, processHistoricalFeed, processFeedEvent, addSystemMessage, resetFeed } = useFeedProcessor({ getAgentById });
 
 const bubbles = ref({});
 const clientRef = ref(null);
@@ -204,6 +284,7 @@ const statusText = computed(() => {
   return "连接中";
 });
 
+const isAuthenticated = computed(() => Boolean(authenticatedUser.value));
 const isGameRunning = computed(() => String(gameStatus.value?.status || "").toLowerCase() === "running");
 
 const refreshGameStatus = async () => {
@@ -429,7 +510,46 @@ const exportExperience = async () => {
 
 let statusTimer = null;
 
-onMounted(() => {
+const clearBubbleTimers = () => {
+  const timers = bubbleTimersRef.value || {};
+  Object.keys(timers).forEach((k) => clearTimeout(timers[k]));
+  bubbleTimersRef.value = {};
+};
+
+const resetRuntimeState = () => {
+  connectionStatus.value = "connecting";
+  phaseText.value = "准备中";
+  startingGame.value = false;
+  stoppingGame.value = false;
+  exportingLog.value = false;
+  exportingExperience.value = false;
+  gameStatus.value = { status: "idle", gameId: null, logPath: null, experiencePath: null };
+  agents.value = [...DEFAULT_AGENTS];
+  bubbles.value = {};
+  clearBubbleTimers();
+  resetFeed();
+};
+
+const teardownRealtime = () => {
+  if (statusTimer) {
+    clearInterval(statusTimer);
+    statusTimer = null;
+  }
+
+  clearBubbleTimers();
+
+  if (clientRef.value) {
+    try {
+      clientRef.value.disconnect();
+    } catch {
+      // ignore
+    }
+  }
+  clientRef.value = null;
+};
+
+const initializeRealtime = () => {
+  teardownRealtime();
   refreshGameStatus();
   statusTimer = setInterval(refreshGameStatus, 1500);
 
@@ -499,25 +619,313 @@ onMounted(() => {
 
   addSystemMessage("等待游戏开始…");
   client.connect();
-});
+};
+
+const handleLogin = async () => {
+  const username = String(loginForm.value.username || "").trim();
+  const password = String(loginForm.value.password || "");
+
+  if (!username || !password) {
+    loginError.value = "请输入用户名和密码。";
+    return;
+  }
+
+  if (VALID_USERS[username] !== password) {
+    loginError.value = "用户名或密码错误，请检查后重试。";
+    return;
+  }
+
+  isLoggingIn.value = true;
+  loginError.value = "";
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 240));
+    authenticatedUser.value = username;
+    window.localStorage.setItem(AUTH_STORAGE_KEY, username);
+    loginForm.value.password = "";
+  } finally {
+    isLoggingIn.value = false;
+  }
+};
+
+const handleLogout = () => {
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  authenticatedUser.value = "";
+  loginError.value = "";
+  loginForm.value = {
+    username: "",
+    password: "",
+  };
+};
+
+watch(
+  isAuthenticated,
+  (authed) => {
+    if (authed) {
+      resetRuntimeState();
+      initializeRealtime();
+      return;
+    }
+
+    teardownRealtime();
+    resetRuntimeState();
+  },
+  { immediate: true }
+);
 
 onBeforeUnmount(() => {
-  if (statusTimer) {
-    clearInterval(statusTimer);
-    statusTimer = null;
-  }
-
-  const timers = bubbleTimersRef.value || {};
-  Object.keys(timers).forEach((k) => clearTimeout(timers[k]));
-  bubbleTimersRef.value = {};
-
-  if (clientRef.value) {
-    try {
-      clientRef.value.disconnect();
-    } catch {
-      // ignore
-    }
-  }
-  clientRef.value = null;
+  teardownRealtime();
+  resetRuntimeState();
 });
 </script>
+
+<style scoped>
+.app--game {
+  background:
+    radial-gradient(circle at top, rgba(129, 140, 248, 0.14), transparent 35%),
+    linear-gradient(180deg, #060b1c 0%, #0b1532 100%);
+}
+
+.game-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.game-layout__room {
+  width: 60%;
+  min-width: 0;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.game-layout__feed {
+  width: 40%;
+  min-width: 360px;
+  background: rgba(7, 12, 30, 0.7);
+}
+
+.login-screen {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background:
+    linear-gradient(rgba(4, 10, 29, 0.4), rgba(2, 6, 23, 0.82)),
+    url("/theme/login-castle.png") center center / cover no-repeat;
+}
+
+.login-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(96, 165, 250, 0.22), transparent 32%),
+    radial-gradient(circle at 50% 100%, rgba(30, 41, 59, 0.65), transparent 55%);
+}
+
+.login-screen__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.15) 0%, rgba(2, 6, 23, 0.78) 100%);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.login-screen__spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(191, 219, 254, 0.85);
+  box-shadow: 0 0 18px rgba(125, 211, 252, 0.75);
+  animation: floatSpark linear infinite;
+  z-index: 1;
+}
+
+.login-panel {
+  position: relative;
+  z-index: 2;
+  width: min(520px, 100%);
+  padding: 44px 36px 32px;
+  border-radius: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(3, 7, 18, 0.92));
+  box-shadow:
+    0 24px 80px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.login-panel__crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.login-panel__title {
+  margin: 20px 0 10px;
+  font-size: clamp(40px, 8vw, 62px);
+  line-height: 1.05;
+  font-weight: 900;
+  text-align: center;
+  color: #eff6ff;
+  text-shadow: 0 0 24px rgba(96, 165, 250, 0.28);
+}
+
+.login-panel__subtitle {
+  margin: 0 0 28px;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-form__field span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dbeafe;
+  letter-spacing: 0.04em;
+}
+
+.login-form__field input {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.login-form__field input::placeholder {
+  color: #94a3b8;
+}
+
+.login-form__field input:focus {
+  border-color: rgba(96, 165, 250, 0.9);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+  transform: translateY(-1px);
+}
+
+.login-form__error {
+  margin: -4px 0 0;
+  color: #fca5a5;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-form__submit {
+  margin-top: 4px;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #2563eb, #4338ca);
+  color: #eff6ff;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.28);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.login-form__submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 36px rgba(37, 99, 235, 0.32);
+}
+
+.login-form__submit:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.login-panel__tips {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  color: #93c5fd;
+  font-size: 12px;
+}
+
+.login-panel__tips span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.56);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+}
+
+@keyframes floatSpark {
+  0%, 100% {
+    transform: translateY(0) scale(0.9);
+    opacity: 0.35;
+  }
+
+  50% {
+    transform: translateY(-16px) scale(1.15);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 980px) {
+  .game-layout {
+    flex-direction: column;
+  }
+
+  .game-layout__room,
+  .game-layout__feed {
+    width: 100%;
+  }
+
+  .game-layout__room {
+    min-height: 62vh;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .game-layout__feed {
+    min-width: 0;
+    min-height: 38vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-panel {
+    padding: 34px 20px 24px;
+    border-radius: 22px;
+  }
+
+  .login-panel__subtitle {
+    font-size: 14px;
+  }
+}
+</style>

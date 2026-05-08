@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""FastAPI 下运行 WolfMind 游戏的一些服务端辅助函数。"""
+"""FastAPI 下运行 WolfAgents 游戏的一些服务端辅助函数。"""
 
 from __future__ import annotations
 

@@ -299,10 +299,16 @@ export function useFeedProcessor({ getAgentById } = {}) {
     feed.value = [feedItem, ...feed.value].slice(0, MAX_FEED_ITEMS);
   };
 
+  const resetFeed = () => {
+    activeConferenceRef.value = null;
+    feed.value = [];
+  };
+
   return {
     feed,
     processHistoricalFeed,
     processFeedEvent,
     addSystemMessage,
+    resetFeed,
   };
 }

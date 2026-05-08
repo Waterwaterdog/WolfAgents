@@ -1,7 +1,7 @@
 {
-  "name": "wolfmind",
+  "name": "wolfagents",
   "version": "0.1.0",
-  "description": "WolfMind - AI 狼人杀多智能体游戏引擎",
+  "description": "WolfAgents - AI 狼人杀多智能体游戏引擎",
   "scripts": {
     "setup": "npm install && cd frontend && npm install",
     "setup:backend": "cd backend && uv sync",

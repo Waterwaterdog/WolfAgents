@@ -1,1 +1,1 @@
-# WolfMind Backend Package
+# WolfAgents Backend Package

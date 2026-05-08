@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""WolfMind 的 FastAPI 服务端。
+"""WolfAgents 的 FastAPI 服务端。
 
 提供：
 - POST /api/game/start  : 启动一局新游戏（以异步后台任务运行）
@@ -157,7 +157,7 @@ class PlayersInsightsResponse(BaseModel):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="WolfMind API", version="0.1.0")
+    app = FastAPI(title="WolfAgents API", version="0.1.0")
 
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = repo_root / "data"
@@ -402,7 +402,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=PlainTextResponse)
     async def root() -> str:
-        return "WolfMind 后端已启动。访问 /docs 查看接口文档，或调用 /api/game/start 开始游戏。"
+        return "WolfAgents 后端已启动。访问 /docs 查看接口文档，或调用 /api/game/start 开始游戏。"
 
     @app.get("/favicon.ico")
     async def favicon() -> Response:

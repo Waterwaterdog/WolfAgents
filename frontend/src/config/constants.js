@@ -1,10 +1,10 @@
 /**
- * WolfMind Frontend Constants (Werewolf)
+ * WolfAgents Frontend Constants (Werewolf)
  * The UI is a single-page "werewolf room" + event feed.
  */
 
 export const ASSETS = {
-  logo: "/wolfmind_logo.svg",
+  logo: "/wolfagents_logo.svg",
   roomBg: "/room_bg_night.svg",
   roomBgDay: "/room_bg_day.svg",
   avatars: {
@@ -17,7 +17,7 @@ export const ASSETS = {
   },
 };
 
-// Kept for compatibility with existing utilities (unused in WolfMind UI)
+// Kept for compatibility with existing utilities (unused in WolfAgents UI)
 export const LLM_MODEL_LOGOS = {};
 
 // Scene dimensions (actual image size)
