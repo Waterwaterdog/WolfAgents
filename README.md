@@ -4,7 +4,7 @@
 
 基于 LLM + AgentScope 的 9 人狼人杀 AI 游戏
 
-![登录界面](./photos/登录.png)
+![登录界面](./photos/登录界面截图.png)
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![AgentScope](https://img.shields.io/badge/AgentScope-0.1.0+-green.svg)](https://github.com/modelscope/agentscope)
@@ -26,9 +26,9 @@
 
 新版前端采用蓝黑色系与魔法城堡主题，包含登录页、白天场景和夜晚场景三套视觉效果：
 
-![登录页](./photos/登录.png)
-![白天场景](./photos/白天.jpg)
-![夜晚场景](./photos/晚上.jpg)
+![登录页](./photos/登录界面截图.png)
+![白天场景](./photos/白天截图.png)
+![夜晚场景](./photos/晚上截图.png)
 
 ### 核心亮点
 
